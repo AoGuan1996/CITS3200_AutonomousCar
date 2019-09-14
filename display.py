@@ -5,8 +5,10 @@ import csv
 from os import listdir
 from os.path import isfile
 from constants import *
+import sys
 
 msgHeader = "[DISPLAY]: "
+gamepad = False
 
 
 class Display():
@@ -26,13 +28,14 @@ class Display():
 		pygame.joystick.init()
 		if (pygame.joystick.get_count() < 1):
 			print(msgHeader + "No gamepad detected.")
-			exit()
-		self.joystick = pygame.joystick.Joystick(0)
-		self.joystick.init()
-		self.debug_button_last = 0
-		self.exit_button_last = 0
+		else:
+			gamepad = True
+			self.joystick = pygame.joystick.Joystick(0)
+			self.joystick.init()
+			self.debug_button_last = 0
+			self.exit_button_last = 0
 
-		self.done = False
+			self.done = False
 
 		print(msgHeader + "Initialisation complete.")
 
@@ -131,23 +134,35 @@ class Display():
 
 	def handle_input(self):
 		for event in pygame.event.get():
-			if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
+			if event.type == QUIT:
 				self.done = True
-		if self.joystick.get_button(8) and not self.debug_button_last:
-			self.DEBUG = not self.DEBUG
-		if self.joystick.get_button(1) and not self.exit_button_last:
-			self.done = True
-		self.debug_button_last = self.joystick.get_button(8)
-		self.exit_button_last = self.joystick.get_button(1)
+			elif event.type == pygame.KEYDOWN and event.key == K_ESCAPE:
+				if (event.mod & pygame.KMOD_SHIFT):
+					pygame.quit()
+					print(msgHeader+"Keyboard interrupt, exiting program")
+					sys.exit() # A little inelegant but it works; skips terminal messages in main.py shutdown
+				else: self.done = True
+		if gamepad:
+			if self.joystick.get_button(8) and not self.debug_button_last:
+				self.DEBUG = not self.DEBUG
+			if self.joystick.get_button(1) and not self.exit_button_last:
+				self.done = True
+			self.debug_button_last = self.joystick.get_button(8)
+			self.exit_button_last = self.joystick.get_button(1)
+		
 
 	# Update the world display.
 	def update(self, world_data):
 		self.handle_input()
-		if self.done: return
+		if self.done:
+			return
 		self.generate_image(world_data)
 		pygame.display.flip()
 
-
+	# Clear the event queue to stop input buffering
+	def clear_events(self):
+		pygame.event.clear()
+		
 	"""
 	My apologies for the following code! It was done in a hurry post-exams to try to
 	tie everything together for you guys. I definitely advise doing a proper menu if
@@ -156,6 +171,7 @@ class Display():
 	"""
 
 	def menu(self):
+	
 		# Get maps from folder.
 		maps = []
 		for folder in listdir(MAPS_DIR):
@@ -245,54 +261,95 @@ class Display():
 		while not start and not exit:
 			self.screen.fill((0, 0, 0))
 			for event in pygame.event.get():
-				if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-					return False
+				if event.type == QUIT or event.type == KEYDOWN:
+					if (event.mod & pygame.KMOD_SHIFT) and event.key == K_ESCAPE:
+						pygame.quit() # SHIFT + ESC will immediately quit the program
+						return False
+						
+					if event.key == K_RETURN: # ENTER functions the same as gamepad A
+						buttons[hovering_on].A()
+						if buttons[hovering_on].is_start:
+							start = True
+						elif buttons[hovering_on].is_exit:
+							exit = True
+					elif event.key == K_ESCAPE: # ESC functions the same as gamepad B
+						buttons[hovering_on].B()
+						
+					elif event.key == K_BACKSPACE: # BACKSPACE functions the same as gamepad X
+						buttons[hovering_on].X()
+						
+					elif event.key == K_SPACE: # SPACE functions the same as gamepad Y
+						buttons[hovering_on].Y()
+					# Enable arrow keys as directional inputs
+					elif event.key == K_DOWN and hovering_on < len(buttons) - 1:
+						if buttons[hovering_on].is_start:
+							pass
+						else:
+							hovering_on += 1
+					
+					elif event.key == K_UP and hovering_on > 0:
+						if buttons[hovering_on].is_exit:
+							pass
+						else:
+							hovering_on -= 1
+					
+					elif event.key == K_LEFT:
+						if buttons[hovering_on].is_exit:
+							hovering_on -= 1
+						else:
+							buttons[hovering_on].previous()
+					
+					elif event.key == K_RIGHT:
+						if buttons[hovering_on].is_start:
+							hovering_on += 1
+						buttons[hovering_on].next()
+						
+			if gamepad:
+				direction = self.joystick.get_hat(0)
+				A = self.joystick.get_button(0)
+				B = self.joystick.get_button(1)
+				X = self.joystick.get_button(2)
+				Y = self.joystick.get_button(3)
+				abxy = [A, B, X, Y]
 
-			direction = self.joystick.get_hat(0)
-			A = self.joystick.get_button(0)
-			B = self.joystick.get_button(1)
-			X = self.joystick.get_button(2)
-			Y = self.joystick.get_button(3)
-			abxy = [A, B, X, Y]
-
-			if direction == prev_direction:
-				pass
-			elif direction == (0, -1) and hovering_on < len(buttons) - 1:
-				if buttons[hovering_on].is_start:
+				if direction == prev_direction:
 					pass
-				else:
-					hovering_on += 1
-			elif direction == (0, 1) and hovering_on > 0:
-				if buttons[hovering_on].is_exit:
-					pass
-				else:
-					hovering_on -= 1
-			elif direction == (-1, 0):
-				if buttons[hovering_on].is_exit:
-					hovering_on -= 1
-				else:
-					buttons[hovering_on].previous()
-			elif direction == (1, 0):
-				if buttons[hovering_on].is_start:
-					hovering_on += 1
-				buttons[hovering_on].next()
-			prev_direction = direction
+				elif direction == (0, -1) and hovering_on < len(buttons) - 1:
+					if buttons[hovering_on].is_start:
+						pass
+					else:
+						hovering_on += 1
+				elif direction == (0, 1) and hovering_on > 0:
+					if buttons[hovering_on].is_exit:
+						pass
+					else:
+						hovering_on -= 1
+				elif direction == (-1, 0):
+					if buttons[hovering_on].is_exit:
+						hovering_on -= 1
+					else:
+						buttons[hovering_on].previous()
+				elif direction == (1, 0):
+					if buttons[hovering_on].is_start:
+						hovering_on += 1
+					buttons[hovering_on].next()
+				prev_direction = direction
 
-			if prev_abxy != [0,0,0,0]:
-				pass
-			elif A:
-				buttons[hovering_on].A()
-				if buttons[hovering_on].is_start:
-					start = True
-				elif buttons[hovering_on].is_exit:
-					exit = True
-			elif B:
-				buttons[hovering_on].B()
-			elif X:
-				buttons[hovering_on].X()
-			elif Y:
-				buttons[hovering_on].Y()
-			prev_abxy = abxy
+				if prev_abxy != [0,0,0,0]:
+					pass
+				elif A:
+					buttons[hovering_on].A()
+					if buttons[hovering_on].is_start:
+						start = True
+					elif buttons[hovering_on].is_exit:
+						exit = True
+				elif B:
+					buttons[hovering_on].B()
+				elif X:
+					buttons[hovering_on].X()
+				elif Y:
+					buttons[hovering_on].Y()
+				prev_abxy = abxy
 
 			for i, button in enumerate(buttons):
 				if i == hovering_on:

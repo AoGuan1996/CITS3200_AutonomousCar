@@ -3,7 +3,6 @@ from display import Display
 from vision import Vision
 from agent import Agent
 from world import World
-from zenwheels.comms import CarCommunicator
 
 
 if __name__ == "__main__":
@@ -19,9 +18,6 @@ if __name__ == "__main__":
 	display = Display()
 	# Display splash screen.
 	display.splash_screen()
-
-	# Initialise car comms.
-	comms = CarCommunicator()
 
 	# Calibrate once at the beginning.
 	display.calibration_screen()

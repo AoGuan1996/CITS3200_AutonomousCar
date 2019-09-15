@@ -3,6 +3,7 @@ from display import Display
 from vision import Vision
 from agent import Agent
 from world import World
+import datetime
 
 
 if __name__ == "__main__":
@@ -50,11 +51,28 @@ if __name__ == "__main__":
 
 		# Main loop.
 		print(msgHeader + "Entering main loop.")
+		dt = datetime.datetime(2019, 1, 1)
+		dt_time = dt.now().time()
+		start_time = datetime.timedelta(seconds=dt_time.second, milliseconds=dt_time.microsecond/1000, 
+										minutes=dt_time.minute, hours=dt_time.hour)
+		laps = []
+		laps.append(start_time)
+		print(msgHeader+str(laps[0]))
 		while True:
-			display.update(world.get_world_data())
+			if display.lap:
+				dt_time = dt.now().time()
+				current_time = datetime.timedelta(seconds=dt_time.second, milliseconds=dt_time.microsecond/1000, 
+										minutes=dt_time.minute, hours=dt_time.hour)
+				laps.append(current_time - start_time)
+			display.lap = False
+			display.update(world.get_world_data(), laps)
 			if display.done:
 				break
-
+			
+			if display.race_complete:
+				######## Do something when the race is finished - e.g. splash screen showing lap times, leaderboard, etc. #########
+				pass
+				
 			for agent in agents:
 				agent.update_world_knowledge(world.get_world_data())
 		print(msgHeader + "Exited main loop.")

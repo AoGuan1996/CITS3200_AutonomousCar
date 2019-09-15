@@ -6,6 +6,7 @@ from os import listdir
 from os.path import isfile
 from constants import *
 import sys
+import datetime
 
 msgHeader = "[DISPLAY]: "
 gamepad = False
@@ -17,9 +18,14 @@ class Display():
 
 		pygame.init()
 		self.screen = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT), pygame.RESIZABLE)
-		self.font = pygame.font.SysFont('Arial', int(DISPLAY_WIDTH / 50))
 		self.background_image = None
 		self.default_text_position = (DISPLAY_WIDTH / 1.5, DISPLAY_HEIGHT / 1.2)
+		self.font_general = pygame.font.SysFont('Arial', int(DISPLAY_WIDTH / 50)) # Font for general text
+		self.font_timer = pygame.font.SysFont('Arial', int(DISPLAY_WIDTH / 30), True) # Font for timer text
+		self.font_timer2 = pygame.font.SysFont('Arial', int(DISPLAY_WIDTH / 50), True) # Font for secondary timer text
+		self.lap = False
+		self.race_complete = False
+		self.finish_time = None
 
 		# Hide mouse.
 		pygame.mouse.set_visible(False)
@@ -41,7 +47,7 @@ class Display():
 
 	def splash_screen(self):
 		self.screen.fill((0, 0, 0))
-		text = self.font.render("AUTONOMOUS VEHICLE TESTBED", True, (255, 255, 255))
+		text = self.font_general.render("AUTONOMOUS VEHICLE TESTBED", True, (255, 255, 255))
 		self.screen.blit(text, self.default_text_position)
 		pygame.display.flip()
 
@@ -68,15 +74,15 @@ class Display():
 			pygame.draw.line(self.screen, (0, 255, 0), tl, bl, 5)
 			pygame.draw.line(self.screen, (0, 255, 0), bl, br, 5)
 			pygame.draw.line(self.screen, (0, 255, 0), br, tr, 5)
-			text = self.font.render("Calibrated successfully.", True, (0, 0, 0))
+			text = self.font_general.render("Calibrated successfully.", True, (0, 0, 0))
 		else:
-			text = self.font.render("Calibrating camera perspective...", True, (0, 0, 0))
+			text = self.font_general.render("Calibrating camera perspective...", True, (0, 0, 0))
 		self.screen.blit(text, self.default_text_position)
 		pygame.display.flip()
 
 	def connecting_screen(self):
 		self.screen.fill((255, 255, 255))
-		text = self.font.render("Connecting to cars...", True, (0, 0, 0))
+		text = self.font_general.render("Connecting to cars...", True, (0, 0, 0))
 		self.screen.blit(text, self.default_text_position)
 		pygame.display.flip()
 
@@ -89,22 +95,45 @@ class Display():
 		for agent in agents:
 			pygame.draw.rect(self.screen, (0, 0, 0),
 							 Rect(xOffset, top, cellWidth, cellHeight), 4)
-			id = self.font.render(str(agent.ID), True, (0, 0, 0))
+			id = self.font_general.render(str(agent.ID), True, (0, 0, 0))
 			rect = id.get_rect(center=(xOffset + cellWidth / 2, top - cellHeight / 10))
 			self.screen.blit(id, rect)
 			xOffset += cellWidth + int(DISPLAY_WIDTH / 14)
 
-		text = self.font.render("Place each car in its cell.", True, (0, 0, 0))
+		text = self.font_general.render("Place each car in its cell.", True, (0, 0, 0))
 		self.screen.blit(text, self.default_text_position)
 		pygame.display.flip()
 
 	# Create image from raw world data.
-	def generate_image(self, world_data):
+	def generate_image(self, world_data, laps):
 		raw_img = world_data["map"]
 		scale_factor = DISPLAY_WIDTH / raw_img.get_rect().size[0]
 		scaled_img = pygame.transform.rotozoom(raw_img, 0, scale_factor)
 		self.background_image = scaled_img
 		self.screen.blit(self.background_image, (0, 0))
+		dt = datetime.datetime(2019, 1, 1) # Parameters don't matter, just used to get current date/time
+		dt = dt.now().time() # Get current time
+		current_time = datetime.timedelta(seconds=dt.second, milliseconds=dt.microsecond/1000, 
+										minutes=dt.minute, hours=dt.hour)
+		time_elapsed = current_time - laps[0]
+		if self.race_complete and self.finish_time == None:
+			self.finish_time = time_elapsed # Store finish time
+			time_text = self.font_timer.render(str(self.finish_time), True, (255, 0, 0))
+			self.screen.blit(time_text, (800, 50))
+		elif self.race_complete:
+			time_text = self.font_timer.render(str(self.finish_time), True, (255, 0, 0))
+			self.screen.blit(time_text, (800, 50))
+		else:
+			time_text = self.font_timer.render(str(time_elapsed), True, (255, 0, 0)) # Render elapsed time on screen
+			self.screen.blit(time_text, (800, 50))
+		lap_y = 90 # Y coordinate for lap time text placement
+		lap_count = 1
+		for lap in laps[1:]:
+			lap_text = self.font_timer2.render('Lap '+str(lap_count)+' - '+str(lap), True, (255, 0, 0))
+			self.screen.blit(lap_text, (825, lap_y))
+			lap_y += 25
+			lap_count += 1
+		
 		if self.DEBUG:
 			yOffset = 0
 			for vehicle in world_data['vehicles']:
@@ -117,18 +146,18 @@ class Display():
 					angleLine = (
 					pos[0] + 200 * math.cos(math.radians(angle)), pos[1] + 200 * math.sin(math.radians(angle)))
 					pygame.draw.line(self.screen, (0, 0, 0), pos, angleLine, 5)
-					text = self.font.render(str(vehicle.owner.ID) + ": " + str(pos) + ", " + str(angle), True,
+					text = self.font_general.render(str(vehicle.owner.ID) + ": " + str(pos) + ", " + str(angle), True,
 											(0, 0, 0))
 					self.screen.blit(text, (50, yOffset))
 					yOffset += 30
-					marker = self.font.render(str(vehicle.owner.ID), True, (0, 0, 0))
+					marker = self.font_general.render(str(vehicle.owner.ID), True, (0, 0, 0))
 					self.screen.blit(marker, pos)
 				except Exception as e:
 					print(str(e))
 
 	def error_message(self, message):
 		self.screen.fill((0, 0, 0))
-		text = self.font.render(message, True, (255, 0, 0))
+		text = self.font_general.render(message, True, (255, 0, 0))
 		self.screen.blit(text, self.default_text_position)
 		pygame.display.flip()
 
@@ -142,6 +171,10 @@ class Display():
 					print(msgHeader+"Keyboard interrupt, exiting program")
 					sys.exit() # A little inelegant but it works; skips terminal messages in main.py shutdown
 				else: self.done = True
+			elif event.type == KEYDOWN and event.key == K_SPACE:
+				if (event.mod & pygame.KMOD_SHIFT):
+					self.race_complete = True
+				else: self.lap = True
 		if gamepad:
 			if self.joystick.get_button(8) and not self.debug_button_last:
 				self.DEBUG = not self.DEBUG
@@ -152,11 +185,11 @@ class Display():
 		
 
 	# Update the world display.
-	def update(self, world_data):
+	def update(self, world_data, start_time):
 		self.handle_input()
 		if self.done:
 			return
-		self.generate_image(world_data)
+		self.generate_image(world_data, start_time)
 		pygame.display.flip()
 
 	# Clear the event queue to stop input buffering
@@ -363,12 +396,12 @@ class Display():
 				if car["Enabled"]:
 					enabled_cars.append(car["ID"])
 			if enabled_cars:
-				text_render = self.font.render("Enabled Cars:", True, (255,255,255))
+				text_render = self.font_general.render("Enabled Cars:", True, (255,255,255))
 				text_rect = text_render.get_rect(center=(DISPLAY_WIDTH / 6, DISPLAY_HEIGHT / 2))
 				self.screen.blit(text_render, text_rect)
 				yOffset = DISPLAY_HEIGHT / 30
 				for ID in enabled_cars:
-					car_text_render = self.font.render(ID, True, (100,120,255))
+					car_text_render = self.font_general.render(ID, True, (100,120,255))
 					car_text_rect = car_text_render.get_rect(center=(DISPLAY_WIDTH / 6, (DISPLAY_HEIGHT / 2) + yOffset))
 					self.screen.blit(car_text_render, car_text_rect)
 					yOffset += DISPLAY_HEIGHT / 30

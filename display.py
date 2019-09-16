@@ -123,13 +123,13 @@ class Display():
 					self.screen.blit(marker, pos)
 				except Exception as e:
 					print(str(e))
-					
-			for wpoint in world_data['waypoints']:
+			for wp in world_data['waypoints']:
 				try:
-					if wpoint is None:
+					if wp is None:
 						continue
-					pygame.draw.circle(self.screen, (256, 0, 0), wpoint, 10, 1)
-				
+					pygame.draw.circle(self.screen, (0,0,0), wp, 10, 1)
+				except Exception as e:
+					print(str(e))
 
 	def error_message(self, message):
 		self.screen.fill((0, 0, 0))

@@ -46,7 +46,7 @@ if __name__ == "__main__":
 			display.error_message(errorMsg)
 			time.sleep(2)
 			continue
-		print(msgHeader+"Passing map "+scenario_config["Map"]["Name"]+" to world")
+			
 		world = World(agents, vehicles, scenario_config["Map"]["Image"], scenario_config["Map"]["Waypoints"])
 
 		# Main loop.
@@ -57,7 +57,6 @@ if __name__ == "__main__":
 										minutes=dt_time.minute, hours=dt_time.hour)
 		laps = []
 		laps.append(start_time)
-		print(msgHeader+str(laps[0]))
 		while True:
 			if display.lap:
 				dt_time = dt.now().time()

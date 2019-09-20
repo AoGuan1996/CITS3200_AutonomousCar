@@ -72,7 +72,7 @@ if __name__ == "__main__":
 			display.connecting_screen()
 			success = comms.connectToCars(vehicles)
 			if not success:
-				break
+				continue
 
 			# Identify car locations.
 			display.identifying_screen(agents)
